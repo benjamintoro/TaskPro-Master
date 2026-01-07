@@ -1,65 +1,116 @@
-import Image from "next/image";
+import Link from "next/link";
+import { prisma } from "./lib/prisma";
+import { createBoard, logout } from "./actions"; 
+import { getSession } from "./lib/session";      
+import { redirect } from "next/navigation"; 
+import { SubmitButton } from "./components/SubmitButton";     
 
-export default function Home() {
+export default async function Home() {
+  
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
+ 
+  const boards = await prisma.board.findMany({
+    where: {
+      userId: session.userId // 
+    },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      tasks: {
+        select: { status: true }
+      }
+    }
+  });
+
+  const user = await prisma.user.findUnique({ where: { id: session.userId }});
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-gray-900 text-white p-8">
+      <header className="mb-10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-bold text-blue-500">TaskMaster Pro</h1>
+          <p className="text-gray-400">Hola, {user?.name} </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="flex gap-4 items-center">
+          
+            <form action={createBoard} className="flex gap-2">
+            <input 
+              type="text" 
+              name="title" 
+              placeholder="Nuevo Tablero..." 
+              className="bg-gray-800 border border-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:border-blue-500"
+              required
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            
+           
+            <SubmitButton 
+              text="+ Crear" 
+              loadingText="..." 
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition min-w-[100px]"
+            />
+          </form>
         </div>
-      </main>
-    </div>
+      </header>
+
+      <section>
+        <h2 className="text-2xl font-semibold mb-4">Mis Tableros</h2>
+        
+        {boards.length === 0 ? (
+          <div className="border-2 border-dashed border-gray-700 rounded-xl p-10 text-center text-gray-500">
+            <p>No tienes tableros creados aún.</p>
+            <p className="text-sm">¡Crea el primero arriba!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {boards.map((board) => {
+              const totalTasks = board.tasks.length;
+              const completedTasks = board.tasks.filter(t => t.status === 'DONE').length;
+              const progress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+
+              return (
+                <Link 
+                  href={`/board/${board.id}`} 
+                  key={board.id} 
+                  className="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition border border-gray-700 shadow-lg block group hover:border-blue-500 relative overflow-hidden"
+                >
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition">{board.title}</h3>
+                      <span className="text-xs font-mono text-gray-500 bg-gray-900 px-2 py-1 rounded">
+                        {new Date(board.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm text-gray-400 mb-2">
+                      <span>Progreso</span>
+                      <span>{progress}%</span>
+                    </div>
+                    
+                    <div className="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className={`h-2.5 rounded-full transition-all duration-500 ${
+                          progress === 100 ? 'bg-green-500' : 'bg-blue-600'
+                        }`} 
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="mt-4 text-right">
+                      <span className="text-xs text-gray-500">
+                        {completedTasks} / {totalTasks} tareas
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }

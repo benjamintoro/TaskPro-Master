@@ -1,0 +1,42 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // O postgresql si estás usando eso
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  password String
+  name     String?
+  boards   Board[]  // Un usuario tiene muchos tableros
+}
+
+model Board {
+  id        Int      @id @default(autoincrement())
+  title     String
+  createdAt DateTime @default(now())
+  
+  userId    Int      // Relación con User
+  user      User     @relation(fields: [userId], references: [id])
+  
+  tasks     Task[]
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  status      String    @default("PENDING")
+  priority    String    @default("LOW")
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  boardId     Int
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+}
