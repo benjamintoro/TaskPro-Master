@@ -29,4 +29,10 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   }
+  "scripts": {
+    "dev": "next dev",
+    "build": "npx prisma generate && next build",  // <--- CAMBIO IMPORTANTE AQUÍ
+    "start": "next start",
+    "lint": "next lint"
+  },
 }
